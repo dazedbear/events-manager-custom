@@ -367,7 +367,7 @@ class EM_Bookings_Table{
 		$EM_Person = $this->get_person();
 		$this->get_bookings(true); //get bookings and refresh
 		?>
-		<div class='em-bookings-table em_obj' id="em-bookings-table">
+		<div class='em-bookings-table em_obj container-fluid' id="em-bookings-table">
 			<form class='bookings-filter' method='post' action='<?php echo esc_url(bloginfo('wpurl')); ?>/wp-admin/edit.php'>
 				<?php if( $EM_Event !== false ): ?>
 				<input type="hidden" name="event_id" value='<?php echo esc_attr($EM_Event->event_id); ?>' />
@@ -437,15 +437,44 @@ class EM_Bookings_Table{
 				</div>
 				<div class="clear"></div>
 				<div class='table-wrap'>
-				<table id='dbem-bookings-table' class='widefat post '>
+				<table id='dbem-bookings-table' class='widefat post container-fluid'>
 					<thead>
-						<tr>
+						<tr class="row">
 							<?php /*						
 							<th class='manage-column column-cb check-column' scope='col'>
 								<input class='select-all' type="checkbox" value='1' />
 							</th>
 							*/ ?>
-							<th class='manage-column' scope='col'><?php echo implode("</th><th class='manage-column' scope='col'>", $this->get_headers()); ?></th>
+							<?php
+								$rwd_layout_class = [
+									'col-2 col-sm-1 col-md-1',
+									'col-10 col-sm-3 col-md-2',
+									'col-12 col-sm-4 col-md-2',
+									'col-4 col-sm col-md',
+									'col-4 col-sm col-md',
+									'col-4 col-sm col-md',
+									'col-12 col-sm-6 col-md-2',
+									'col-6 col-sm-3 col-md',
+									'col-6 col-sm-3 col-md'
+								];
+
+								$headers = $this->get_headers();
+								$count_headers = count($headers);
+								$count_rwd_class = count($rwd_layout_class);
+
+								// 預設 class 為均分 col
+								if ($count_headers > $count_rwd_class) {	
+									$default_rwd_class = array_fill(0, $count_headers - $count_rwd_class, 'col');
+									$rwd_layout_class = array_merge($rwd_layout_class, $default_rwd_class);
+								}
+
+								// 輸出表格標題
+								$i = 0;
+								foreach ($headers as $column) {
+									echo "<th class='manage-column ".$rwd_layout_class[$i]."' scope='col'>".$column."</th>";
+									$i++;
+								}
+							?>
 						</tr>
 					</thead>
 					<?php if( $this->bookings_count > 0 ): ?>
@@ -455,7 +484,7 @@ class EM_Bookings_Table{
 						$event_count = (!empty($event_count)) ? $event_count:0;
 						foreach ($this->bookings->bookings as $EM_Booking) {
 							?>
-							<tr>
+							<tr class="row">
 								<?php  /*
 								<th scope="row" class="check-column" style="padding:7px 0px 7px;"><input type='checkbox' value='<?php echo $EM_Booking->booking_id ?>' name='bookings[]'/></th>
 								*/ 
@@ -482,7 +511,7 @@ class EM_Bookings_Table{
 					</tbody>
 					<?php else: ?>
 						<tbody>
-							<tr><td scope="row" colspan="<?php echo count($this->cols); ?>"><?php esc_html_e('No bookings.', 'events-manager'); ?></td></tr>
+							<tr class="row"><td class="col" scope="row" colspan="<?php echo count($this->cols); ?>"><?php esc_html_e('No bookings.', 'events-manager'); ?></td></tr>
 						</tbody>
 					<?php endif; ?>
 				</table>
