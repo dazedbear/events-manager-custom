@@ -495,7 +495,7 @@ jQuery(document).ready( function($){
 			return false;
 		});
 		//Approve/Reject Links
-		$(document).delegate('.em-bookings-approve,.em-bookings-reject,.em-bookings-unapprove,.em-bookings-delete', 'click', function(){
+		$(document).delegate('.em-bookings-approve,.em-bookings-userconfirmed,.em-bookings-checkedin,.em-bookings-reject,.em-bookings-unapprove,.em-bookings-delete', 'click', function(){
 			var el = $(this); 
 			if( el.hasClass('em-bookings-delete') ){
 				if( !confirm(EM.booking_delete) ){ return false; }
@@ -584,7 +584,37 @@ jQuery(document).ready( function($){
 			});
 		}
 		return false;
-	});  
+	});
+
+	//指定點名班長
+	$(document).on("click",".setAuthor", function (event) {
+    	console.log(event.target);
+    	var post_id = $(this).attr('data-post-id');
+    	var author_id = $(this).attr('data-author-id');
+    	console.log({post_id, author_id});
+
+    	var url = '//kids-career.com.tw/wp-json/wp/v2/posts/' + post_id; 
+
+    	jQuery.ajax({
+            beforeSend: (xhr) => {
+                //this picks up value set in functions.php to allow authentication to be passed through with function so WP knows to allow deletion.
+                xhr.setRequestHeader('X-WP-Nonce', universityData.nonce);
+            },
+            url: universityData.root_url + '/wp-json/wp/v2/posts/' + post_id,
+            type: 'POST',
+            data: {
+            	author: author_id
+            },
+            success: (response) => {
+                alert("指定成功");
+                console.log(response);
+            },
+            error: (response) => {
+                alert("指定錯誤");
+                console.log(response);
+            }
+        });
+	});
 
 	//Datepicker
 	if( $('.em-date-single, .em-date-range, #em-date-start').length > 0 ){
@@ -683,7 +713,7 @@ jQuery(document).ready( function($){
 				return false;
 			}
 		}).data( "ui-autocomplete" )._renderItem = function( ul, item ) {
-			html_val = "<a>" + em_esc_attr(item.label) + '<br><span style="font-size:11px"><em>'+ em_esc_attr(item.address) + ', ' + em_esc_attr(item.town)+"</em></span></a>";
+			html_val = "<a>" + item.label + '<br><span style="font-size:11px"><em>'+ item.address + ', ' + item.town+"</em></span></a>";
 			return jQuery( "<li></li>" ).data( "item.autocomplete", item ).append(html_val).appendTo( ul );
 		};
 		jQuery('#em-location-reset a').click( function(){
@@ -845,7 +875,7 @@ var em_ajaxify = function(url){
 var em_maps_loaded = false;
 var maps = {};
 var maps_markers = {};
-var infoWindow;
+var infowindow;
 //loads maps script if not already loaded and executes EM maps script
 function em_maps_load(){
 	if( !em_maps_loaded ){
@@ -925,30 +955,35 @@ function em_maps_load_location(el){
 	var map_id = el.attr('id').replace('em-location-map-','');
 	em_LatLng = new google.maps.LatLng( jQuery('#em-location-map-coords-'+map_id+' .lat').text(), jQuery('#em-location-map-coords-'+map_id+' .lng').text());
 	//extend map and markers via event triggers
+	var is_touch = 'ontouchstart' in window || navigator.maxTouchPoints;
 	var map_options = {
 	    zoom: 14,
 	    center: em_LatLng,
 	    mapTypeId: google.maps.MapTypeId.ROADMAP,
 	    mapTypeControl: false,
-	    gestureHandling: 'cooperative'
+	    scrollwheel: is_touch
 	};
 	if( typeof EM.google_map_id_styles == 'object' && typeof EM.google_map_id_styles[map_id] !== 'undefined' ){ console.log(EM.google_map_id_styles[map_id]); map_options.styles = EM.google_map_id_styles[map_id]; }
 	else if( typeof EM.google_maps_styles !== 'undefined' ){ map_options.styles = EM.google_maps_styles; }
 	jQuery(document).triggerHandler('em_maps_location_map_options', map_options);
 	maps[map_id] = new google.maps.Map( document.getElementById('em-location-map-'+map_id), map_options);
+	if( !is_touch ){
+		maps[map_id].addListener('click', function(){ maps[map_id].setOptions({ scrollwheel:true }); });
+		maps[map_id].addListener('mouseout', function(){ maps[map_id].setOptions({ scrollwheel:false }); });
+	}
 	var marker_options = {
 	    position: em_LatLng,
 	    map: maps[map_id]
 	};
 	jQuery(document).triggerHandler('em_maps_location_marker_options', marker_options);
 	maps_markers[map_id] = new google.maps.Marker(marker_options);
-	infoWindow = new google.maps.InfoWindow({ content: jQuery('#em-location-map-info-'+map_id+' .em-map-balloon').get(0) });
-	infoWindow.open(maps[map_id],maps_markers[map_id]);
+	infowindow = new google.maps.InfoWindow({ content: jQuery('#em-location-map-info-'+map_id+' .em-map-balloon').get(0) });
+	infowindow.open(maps[map_id],maps_markers[map_id]);
 	maps[map_id].panBy(40,-70);
 	
 	//JS Hook for handling map after instantiation
 	//Example hook, which you can add elsewhere in your theme's JS - jQuery(document).bind('em_maps_location_hook', function(){ alert('hi');} );
-	jQuery(document).triggerHandler('em_maps_location_hook', [maps[map_id], infoWindow, maps_markers[map_id], map_id]);
+	jQuery(document).triggerHandler('em_maps_location_hook', [maps[map_id], infowindow, maps_markers[map_id], map_id]);
 	//map resize listener
 	jQuery(window).on('resize', function(e) {
 		google.maps.event.trigger(maps[map_id], "resize");
@@ -979,21 +1014,22 @@ function em_maps() {
 				var position = new google.maps.LatLng(location_latitude, location_longitude); //the location coords
 				marker.setPosition(position);
 				var mapTitle = (jQuery('input#location-name').length > 0) ? jQuery('input#location-name').val():jQuery('input#title').val();
-				mapTitle = em_esc_attr(mapTitle);
-				marker.setTitle( mapTitle );
+				marker.setTitle( jQuery('input#location-name input#title, #location-select-id').first().val() );
 				jQuery('#em-map').show();
 				jQuery('#em-map-404').hide();
 				google.maps.event.trigger(map, 'resize');
 				map.setCenter(position);
 				map.panBy(40,-55);
 				infoWindow.setContent( 
-					'<div id="location-balloon-content"><strong>' + mapTitle + '</strong><br>' + 
-					em_esc_attr(jQuery('#location-address').val()) + 
-					'<br>' + em_esc_attr(jQuery('#location-town').val()) + 
+					'<div id="location-balloon-content"><strong>' + 
+					mapTitle + 
+					'</strong><br/>' + 
+					jQuery('#location-address').val() + 
+					'<br/>' + jQuery('#location-town').val()+ 
 					'</div>'
 				);
 				infoWindow.open(map, marker);
-				jQuery(document).triggerHandler('em_maps_location_hook', [map, infoWindow, marker, 0]);
+				jQuery(document).triggerHandler('em_maps_location_hook', [map, infowindow, marker, 0]);
 			} else {
     			jQuery('#em-map').hide();
     			jQuery('#em-map-404').show();
@@ -1016,7 +1052,7 @@ function em_maps() {
 						infoWindow.setContent( '<div id="location-balloon-content">'+ data.location_balloon +'</div>');
 						infoWindow.open(map, marker);
 						google.maps.event.trigger(map, 'resize');
-						jQuery(document).triggerHandler('em_maps_location_hook', [map, infoWindow, marker, 0]);
+						jQuery(document).triggerHandler('em_maps_location_hook', [map, infowindow, marker, 0]);
 					}else{
 						jQuery('#em-map').hide();
 						jQuery('#em-map-404').show();
@@ -1057,15 +1093,20 @@ function em_maps() {
 		//Load map
 		if(jQuery('#em-map').length > 0){
 			var em_LatLng = new google.maps.LatLng(0, 0);
+			var is_touch = 'ontouchstart' in window || navigator.maxTouchPoints;
 			var map_options = {
 				    zoom: 14,
 				    center: em_LatLng,
 				    mapTypeId: google.maps.MapTypeId.ROADMAP,
 				    mapTypeControl: false,
-				    gestureHandling: 'cooperative'
+				    scrollwheel: is_touch
 			};
 			if( typeof EM.google_maps_styles !== 'undefined' ){ map_options.styles = EM.google_maps_styles; }
 			map = new google.maps.Map( document.getElementById('em-map'), map_options);
+			if( !is_touch ){
+				map.addListener('click', function(){ map.setOptions({ scrollwheel:true }); });
+				map.addListener('mouseout', function(){ map.setOptions({ scrollwheel:false }); });
+			}
 			var marker = new google.maps.Marker({
 			    position: em_LatLng,
 			    map: map,
@@ -1091,7 +1132,7 @@ function em_maps() {
 			}else{
 				refresh_map_location();
 			}
-			jQuery(document).triggerHandler('em_map_loaded', [map, infoWindow, marker]);
+			jQuery(document).triggerHandler('em_map_loaded', [map, infowindow, marker]);
 		}
 		//map resize listener
 		jQuery(window).on('resize', function(e) {
@@ -1107,16 +1148,13 @@ function em_maps() {
 function em_map_infobox(marker, message, map) {
   var iw = new google.maps.InfoWindow({ content: message });
   google.maps.event.addListener(marker, 'click', function() {
-	if( infoWindow ) infoWindow.close();
-	infoWindow = iw;
+	if( infowindow ) infowindow.close();
+	infowindow = iw;
     iw.open(map,marker);
   });
 }
 
-function em_esc_attr( str ){
-	if( typeof str !== 'string' ) return '';
-	return str.replace(/</gi,'&lt;').replace(/>/gi,'&gt;');
-}
+
 
 /* jQuery timePicker - http://labs.perifer.se/timedatepicker/ @ http://github.com/perifer/timePicker commit 100644 */
 (function(e){function t(t,n,r,i){t.value=e(n).text();e(t).change();if(!navigator.userAgent.match(/msie/i)){t.focus()}r.hide()}function n(e,t){var n=e.getHours();var i=t.show24Hours?n:(n+11)%12+1;var s=e.getMinutes();return r(i)+t.separator+r(s)+(t.show24Hours?"":n<12?" AM":" PM")}function r(e){return(e<10?"0":"")+e}function i(e,t){return typeof e=="object"?o(e):s(e,t)}function s(e,t){if(e){var n=e.split(t.separator);var r=parseFloat(n[0]);var i=parseFloat(n[1]);if(!t.show24Hours){if(r===12&&e.indexOf("AM")!==-1){r=0}else if(r!==12&&e.indexOf("PM")!==-1){r+=12}}var s=new Date(0,0,0,r,i,0);return o(s)}return null}function o(e){e.setFullYear(2001);e.setMonth(0);e.setDate(0);return e}e.fn.timePicker=function(t){var n=e.extend({},e.fn.timePicker.defaults,t);return this.each(function(){e.timePicker(this,n)})};e.timePicker=function(t,n){var r=e(t)[0];return r.timePicker||(r.timePicker=new jQuery._timePicker(r,n))};e.timePicker.version="0.3";e._timePicker=function(r,u){var a=false;var f=false;var l=i(u.startTime,u);var c=i(u.endTime,u);var h="selected";var p="li."+h;e(r).attr("autocomplete","OFF");var d=[];var v=new Date(l);while(v<=c){d[d.length]=n(v,u);v=new Date(v.setMinutes(v.getMinutes()+u.step))}var m=e('<div class="time-picker'+(u.show24Hours?"":" time-picker-12hours")+'"></div>');var g=e("<ul></ul>");for(var y=0;y<d.length;y++){g.append("<li>"+d[y]+"</li>")}m.append(g);m.appendTo("body").hide();m.mouseover(function(){a=true}).mouseout(function(){a=false});e("li",g).mouseover(function(){if(!f){e(p,m).removeClass(h);e(this).addClass(h)}}).mousedown(function(){a=true}).click(function(){t(r,this,m,u);a=false});var b=function(){if(m.is(":visible")){return false}e("li",m).removeClass(h);var t=e(r).offset();m.css({top:t.top+r.offsetHeight,left:t.left});m.show();var i=r.value?s(r.value,u):l;var a=l.getHours()*60+l.getMinutes();var f=i.getHours()*60+i.getMinutes()-a;var p=Math.round(f/u.step);var d=o(new Date(0,0,0,0,p*u.step+a,0));d=l<d&&d<=c?d:l;var v=e("li:contains("+n(d,u)+")",m);if(v.length){v.addClass(h);m[0].scrollTop=v[0].offsetTop}return true};e(r).focus(b).click(b);e(r).blur(function(){if(!a){m.hide()}});e(r)["keydown"](function(n){var i;f=true;var s=m[0].scrollTop;switch(n.keyCode){case 38:if(b()){return false}i=e(p,g);var o=i.prev().addClass(h)[0];if(o){i.removeClass(h);if(o.offsetTop<s){m[0].scrollTop=s-o.offsetHeight}}else{i.removeClass(h);o=e("li:last",g).addClass(h)[0];m[0].scrollTop=o.offsetTop-o.offsetHeight}return false;break;case 40:if(b()){return false}i=e(p,g);var a=i.next().addClass(h)[0];if(a){i.removeClass(h);if(a.offsetTop+a.offsetHeight>s+m[0].offsetHeight){m[0].scrollTop=s+a.offsetHeight}}else{i.removeClass(h);a=e("li:first",g).addClass(h)[0];m[0].scrollTop=0}return false;break;case 13:if(m.is(":visible")){var l=e(p,g)[0];t(r,l,m,u)}return false;break;case 27:m.hide();return false;break}return true});e(r).keyup(function(e){f=false});this.getTime=function(){return s(r.value,u)};this.setTime=function(t){r.value=n(i(t,u),u);e(r).change()}};e.fn.timePicker.defaults={step:30,startTime:new Date(0,0,0,0,0,0),endTime:new Date(0,0,0,23,30,0),separator:":",show24Hours:true}})(jQuery)

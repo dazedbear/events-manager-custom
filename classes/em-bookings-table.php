@@ -1,4 +1,13 @@
 <?php
+
+	function set_event_author($post_id,$author)
+	{
+		wp_update_post([
+			"ID" => $post_id,
+			"post_author" => $author
+		], true);
+	}
+
 //Builds a table of bookings, still work in progress...
 class EM_Bookings_Table{
 	/**
@@ -8,7 +17,7 @@ class EM_Bookings_Table{
 	 * * value - label for use in collumn headers 
 	 * @var array
 	 */
-	public $cols = array('user_name','event_name','booking_spaces','booking_status','booking_price','actions');
+	public $cols = array('role','user_name','event_name','booking_spaces','booking_status','booking_price','booking_comment','notes','actions');
 	/**
 	 * Asoociative array of available collumn keys and corresponding headers, which will be used to display this table of bookings
 	 * @var unknown_type
@@ -47,9 +56,12 @@ class EM_Bookings_Table{
 	public $offset = 0;
 	public $scope = 'future';
 	public $show_tickets = false; 
+
 	
 	function __construct($show_tickets = false){
 		$this->statuses = array(
+			'userconfirmed' => array('label'=>__('👌已確認前往👌','events-manager'), 'search'=>7),
+			'checkedin' => array('label'=>__('♥已簽到♥','events-manager'), 'search'=>6),
 			'all' => array('label'=>__('All','events-manager'), 'search'=>false),
 			'pending' => array('label'=>__('Pending','events-manager'), 'search'=>0),
 			'confirmed' => array('label'=>__('Confirmed','events-manager'), 'search'=>1),
@@ -73,6 +85,7 @@ class EM_Bookings_Table{
 		$this->status = ( !empty($_REQUEST['status']) && array_key_exists($_REQUEST['status'], $this->statuses) ) ? sanitize_text_field($_REQUEST['status']):'needs-attention';
 		//build template of possible collumns
 		$this->cols_template = apply_filters('em_bookings_table_cols_template', array(
+			'role'=>__('Role','events-manager'),
 			'user_name'=>__('Name','events-manager'),
 			'first_name'=>__('First Name','events-manager'),
 			'last_name'=>__('Last Name','events-manager'),
@@ -86,19 +99,20 @@ class EM_Bookings_Table{
 			'booking_date'=>__('Booking Date','events-manager'),
 			'booking_price'=>__('Total','events-manager'),
 			'booking_id'=>__('Booking ID','events-manager'),
-			'booking_comment'=>__('Booking Comment','events-manager')
+			'booking_comment'=>__('Booking Comment','events-manager'),
+			'notes'=>__('匯款後五碼','events-manager'),
+			'actions'=>__('Actions','events_manager')
 		), $this);
 		$this->cols_tickets_template = apply_filters('em_bookings_table_cols_tickets_template', array(
 			'ticket_name'=>__('Ticket Name','events-manager'),
 			'ticket_description'=>__('Ticket Description','events-manager'),
 			'ticket_price'=>__('Ticket Price','events-manager'),
-			'ticket_total'=>__('Ticket Total','events-manager'),
 			'ticket_id'=>__('Ticket ID','events-manager')
 		), $this);
 		//add tickets to template if we're showing rows by booking-ticket
 		if( $show_tickets ){
 			$this->show_tickets = true;
-			$this->cols = array('user_name','event_name','ticket_name','ticket_price','booking_spaces','booking_status','actions');
+			$this->cols = array('role','user_name','event_name','ticket_name','ticket_price','booking_spaces','booking_status','booking_comment','notes','actions');
 			$this->cols_template = array_merge( $this->cols_template, $this->cols_tickets_template);
 		}
 		$this->cols_template['actions'] = __('Actions','events-manager');
@@ -515,11 +529,10 @@ class EM_Bookings_Table{
 	 * @param Object $object
 	 * @return array()
 	 */
-	function get_row( $object, $format = 'html' ){
+	function get_row( $object, $csv = false ){
 		/* @var $EM_Ticket EM_Ticket */
 		/* @var $EM_Ticket_Booking EM_Ticket_Booking */
 		/* @var $EM_Booking EM_Booking */
-		if( $format === true ) $format = 'csv'; //backwards compatibility, previously $format was $csv which was a boolean 
 		if( get_class($object) == 'EM_Ticket_Booking' ){
 			$EM_Ticket_Booking = $object;
 			$EM_Ticket = $EM_Ticket_Booking->get_ticket();
@@ -535,21 +548,23 @@ class EM_Bookings_Table{
 			if( $col == 'user_email' ){
 				$val = $EM_Booking->get_person()->user_email;
 			}elseif($col == 'dbem_phone'){
-				$val = $EM_Booking->get_person()->phone;
+				$val = esc_html($EM_Booking->get_person()->phone);
 			}elseif($col == 'user_name'){
-				if( $format == 'csv' ){
+				if( $csv || $EM_Booking->is_no_user() ){
 					$val = $EM_Booking->get_person()->get_name();
-				}elseif( $EM_Booking->is_no_user() ){
-					$val = esc_html($EM_Booking->get_person()->get_name());
 				}else{
-					$val = '<a href="'.esc_url(add_query_arg(array('person_id'=>$EM_Booking->person_id, 'event_id'=>null), $EM_Booking->get_event()->get_bookings_url())).'">'. esc_html($EM_Booking->person->get_name()) .'</a>';
+					if(is_admin() || current_user_can('manage_others_bookings')){
+					$val = '<a href="'.esc_url(add_query_arg(array('person_id'=>$EM_Booking->person_id, 'event_id'=>null), $EM_Booking->get_event()->get_bookings_url())).'">'. esc_html($EM_Booking->person->get_name()) .'</a>';}
+					else{
+						$val = esc_html($EM_Booking->person->get_name());
+					}
 				}
 			}elseif($col == 'first_name'){
-				$val = $EM_Booking->get_person()->first_name;
+				$val = esc_html($EM_Booking->get_person()->first_name);
 			}elseif($col == 'last_name'){
-				$val = $EM_Booking->get_person()->last_name;
+				$val = esc_html($EM_Booking->get_person()->last_name);
 			}elseif($col == 'event_name'){
-				if( $format == 'csv' ){
+				if( $csv ){
 					$val = $EM_Booking->get_event()->event_name;
 				}else{
 					$val = '<a href="'.$EM_Booking->get_event()->get_bookings_url().'">'. esc_html($EM_Booking->get_event()->event_name) .'</a>';
@@ -559,45 +574,66 @@ class EM_Bookings_Table{
 			}elseif($col == 'event_time'){
 				$val = $EM_Booking->get_event()->output('#_EVENTTIMES');
 			}elseif($col == 'booking_price'){
-				$val = $EM_Booking->get_price(true);
+				if($this->show_tickets && !empty($EM_Ticket)){ 
+					$val = em_get_currency_formatted(apply_filters('em_bookings_table_row_booking_price_ticket', $EM_Ticket_Booking->get_price(false,false, true), $EM_Booking, true));
+				}else{
+					$val = $EM_Booking->get_price(true);
+				}
 			}elseif($col == 'booking_status'){
 				$val = $EM_Booking->get_status(true);
 			}elseif($col == 'booking_date'){
-				$val = $EM_Booking->date()->i18n( get_option('dbem_date_format').' '. get_option('dbem_time_format') );
+				$val = date_i18n(get_option('dbem_date_format').' '. get_option('dbem_time_format'), $EM_Booking->timestamp);
 			}elseif($col == 'actions' ){
-				if( $format == 'csv' ) continue; 
+				if( $csv ) continue; 
 				$val = implode(' | ', $this->get_booking_actions($EM_Booking));
 			}elseif( $col == 'booking_spaces' ){
 				$val = ($this->show_tickets && !empty($EM_Ticket)) ? $EM_Ticket_Booking->get_spaces() : $EM_Booking->get_spaces();
 			}elseif( $col == 'booking_id' ){
 				$val = $EM_Booking->booking_id;
 			}elseif( $col == 'ticket_name' && $this->show_tickets && !empty($EM_Ticket) ){
-				$val = $EM_Ticket->$col;
+				$val = $csv ? $EM_Ticket->$col : esc_html($EM_Ticket->$col);
 			}elseif( $col == 'ticket_description' && $this->show_tickets && !empty($EM_Ticket) ){
-				$val = $EM_Ticket->$col;
+				$val = $csv ? $EM_Ticket->$col : esc_html($EM_Ticket->$col);
 			}elseif( $col == 'ticket_price' && $this->show_tickets && !empty($EM_Ticket) ){
 				$val = $EM_Ticket->get_price(true);
-			}elseif( $col == 'ticket_total' && $this->show_tickets && !empty($EM_Ticket_Booking) ){
-				$val = apply_filters('em_bookings_table_row_booking_price_ticket', $EM_Ticket_Booking->get_price(false), $EM_Booking, true);
-				$val = $EM_Booking->format_price($val * (1 + $EM_Booking->get_tax_rate(true)));
 			}elseif( $col == 'ticket_id' && $this->show_tickets && !empty($EM_Ticket) ){
 				$val = $EM_Ticket->ticket_id;
 			}elseif( $col == 'booking_comment' ){
-				$val = $EM_Booking->booking_comment;
+				$val = $csv ? $EM_Booking->booking_comment : esc_html($EM_Booking->booking_comment);
+
+			}elseif( $col == 'role' ){
+				$roles = $EM_Booking->get_person()->roles;
+				$role = $roles[0];
+				$post_id = $this->get_event()->post_id;
+				$author_id = $EM_Booking->get_person()->ID;
+
+				wp_localize_script('events-manager', 'universityData', array(
+			        'root_url' => get_site_url(),
+			        'nonce' => wp_create_nonce('wp_rest')
+			    ));
+				if($role=='author'){
+					$val = '<button class="setAuthor" data-post-id="' . $post_id . '" data-author-id="'. $author_id . '">V</button>';					
+				}
+
+			}elseif( $col == 'notes' ){
+
+				foreach( $EM_Booking->get_notes() as $note )
+					$val = $note['note'];
+
 			}
 			//escape all HTML if destination is HTML or not defined
-			if( $format == 'html' || empty($format) ){
-				if( !in_array($col, array('user_name', 'event_name', 'actions')) ) $val = esc_html($val);
+			if( $csv == 'html' || empty($csv) ){
+				if( !in_array($col, array('role','user_name', 'event_name', 'actions')) ) $val = esc_html($val);
 			}
 			//use this 
-			$val = apply_filters('em_bookings_table_rows_col_'.$col, $val, $EM_Booking, $this, $format, $object);
-			$cols[] = apply_filters('em_bookings_table_rows_col', $val, $col, $EM_Booking, $this, $format, $object); //use the above filter instead for better performance
+			$val = apply_filters('em_bookings_table_rows_col_'.$col, $val, $EM_Booking, $this, $csv, $object);
+			$cols[] = apply_filters('em_bookings_table_rows_col', $val, $col, $EM_Booking, $this, $csv, $object); //deprecated, use the above filter instead for better performance
 		}
 		return $cols;
 	}
 	
 	function get_row_csv($EM_Booking){
-	    $row = $this->get_row($EM_Booking, 'csv');
+	    $row = $this->get_row($EM_Booking, true);
 	    foreach($row as $k=>$v) $row[$k] = html_entity_decode($v); //remove things like &amp; which may have been saved to the DB directly
 	    return $row;
 	}
@@ -608,43 +644,86 @@ class EM_Bookings_Table{
 	 */
 	function get_booking_actions($EM_Booking){
 		$booking_actions = array();
-		$url = $EM_Booking->get_event()->get_bookings_url();	
-		switch($EM_Booking->booking_status){
-			case 0: //pending
-				if( get_option('dbem_bookings_approval') ){
+		$url = $EM_Booking->get_event()->get_bookings_url();
+		if(is_admin())
+		{	
+			switch($EM_Booking->booking_status){
+				case 0: //pending
+					if( get_option('dbem_bookings_approval') ){
+						$booking_actions = array(
+							'approve' => '<a class="em-bookings-approve" href="'.em_add_get_params($url, array('action'=>'bookings_approve', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Approve','events-manager').'</a>',
+							'reject' => '<a class="em-bookings-reject" href="'.em_add_get_params($url, array('action'=>'bookings_reject', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Reject','events-manager').'</a>',
+							'delete' => '<span class="trash"><a class="em-bookings-delete" href="'.em_add_get_params($url, array('action'=>'bookings_delete', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Delete','events-manager').'</a></span>',
+							'edit' => '<a class="em-bookings-edit" href="'.em_add_get_params($EM_Booking->get_event()->get_bookings_url(), array('booking_id'=>$EM_Booking->booking_id, 'em_ajax'=>null, 'em_obj'=>null)).'">'.__('Edit/View','events-manager').'</a>',
+						);
+						break;
+					}//if approvals are off, treat as a 1
+				case 1: //approved
 					$booking_actions = array(
-						'approve' => '<a class="em-bookings-approve" href="'.em_add_get_params($url, array('action'=>'bookings_approve', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Approve','events-manager').'</a>',
+						'userconfirmed' => '<a class="em-bookings-userconfirmed" href="'.em_add_get_params($url, array('action'=>'bookings_userconfirmed', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('UserConfirmed','events-manager').'</a>',
+						'unapprove' => '<a class="em-bookings-unapprove" href="'.em_add_get_params($url, array('action'=>'bookings_unapprove', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Unapprove','events-manager').'</a>',
 						'reject' => '<a class="em-bookings-reject" href="'.em_add_get_params($url, array('action'=>'bookings_reject', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Reject','events-manager').'</a>',
 						'delete' => '<span class="trash"><a class="em-bookings-delete" href="'.em_add_get_params($url, array('action'=>'bookings_delete', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Delete','events-manager').'</a></span>',
 						'edit' => '<a class="em-bookings-edit" href="'.em_add_get_params($EM_Booking->get_event()->get_bookings_url(), array('booking_id'=>$EM_Booking->booking_id, 'em_ajax'=>null, 'em_obj'=>null)).'">'.__('Edit/View','events-manager').'</a>',
 					);
 					break;
-				}//if approvals are off, treat as a 1
-			case 1: //approved
-				$booking_actions = array(
-					'unapprove' => '<a class="em-bookings-unapprove" href="'.em_add_get_params($url, array('action'=>'bookings_unapprove', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Unapprove','events-manager').'</a>',
-					'reject' => '<a class="em-bookings-reject" href="'.em_add_get_params($url, array('action'=>'bookings_reject', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Reject','events-manager').'</a>',
-					'delete' => '<span class="trash"><a class="em-bookings-delete" href="'.em_add_get_params($url, array('action'=>'bookings_delete', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Delete','events-manager').'</a></span>',
-					'edit' => '<a class="em-bookings-edit" href="'.em_add_get_params($EM_Booking->get_event()->get_bookings_url(), array('booking_id'=>$EM_Booking->booking_id, 'em_ajax'=>null, 'em_obj'=>null)).'">'.__('Edit/View','events-manager').'</a>',
-				);
-				break;
-			case 2: //rejected
-				$booking_actions = array(
-					'approve' => '<a class="em-bookings-approve" href="'.em_add_get_params($url, array('action'=>'bookings_approve', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Approve','events-manager').'</a>',
-					'delete' => '<span class="trash"><a class="em-bookings-delete" href="'.em_add_get_params($url, array('action'=>'bookings_delete', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Delete','events-manager').'</a></span>',
-					'edit' => '<a class="em-bookings-edit" href="'.em_add_get_params($EM_Booking->get_event()->get_bookings_url(), array('booking_id'=>$EM_Booking->booking_id, 'em_ajax'=>null, 'em_obj'=>null)).'">'.__('Edit/View','events-manager').'</a>',
-				);
-				break;
-			case 3: //cancelled
-			case 4: //awaiting online payment - similar to pending but always needs approval in EM Free
-			case 5: //awaiting payment - similar to pending but always needs approval in EM Free
-				$booking_actions = array(
-					'approve' => '<a class="em-bookings-approve" href="'.em_add_get_params($url, array('action'=>'bookings_approve', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Approve','events-manager').'</a>',
-					'delete' => '<span class="trash"><a class="em-bookings-delete" href="'.em_add_get_params($url, array('action'=>'bookings_delete', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Delete','events-manager').'</a></span>',
-					'edit' => '<a class="em-bookings-edit" href="'.em_add_get_params($EM_Booking->get_event()->get_bookings_url(), array('booking_id'=>$EM_Booking->booking_id, 'em_ajax'=>null, 'em_obj'=>null)).'">'.__('Edit/View','events-manager').'</a>',
-				);
-				break;
-				
+				case 6: //checked in
+					$booking_actions = array(
+						'unapprove' => '<a class="em-bookings-unapprove" href="'.em_add_get_params($url, array('action'=>'bookings_unapprove', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Unapprove','events-manager').'</a>',
+						'reject' => '<a class="em-bookings-reject" href="'.em_add_get_params($url, array('action'=>'bookings_reject', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Reject','events-manager').'</a>',
+						'delete' => '<span class="trash"><a class="em-bookings-delete" href="'.em_add_get_params($url, array('action'=>'bookings_delete', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Delete','events-manager').'</a></span>',
+						'edit' => '<a class="em-bookings-edit" href="'.em_add_get_params($EM_Booking->get_event()->get_bookings_url(), array('booking_id'=>$EM_Booking->booking_id, 'em_ajax'=>null, 'em_obj'=>null)).'">'.__('Edit/View','events-manager').'</a>',
+					);
+					break;
+				case 7: //user confirmed
+					$booking_actions = array(
+						'checkedin' => '<a class="em-bookings-checkedin" href="'.em_add_get_params($url, array('action'=>'bookings_checkedin', 'booking_id'=>$EM_Booking->booking_id)).'">'.__(' ♥班長簽到♥ ','events-manager').'</a>',
+						'unapprove' => '<a class="em-bookings-unapprove" href="'.em_add_get_params($url, array('action'=>'bookings_unapprove', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Unapprove','events-manager').'</a>',
+						'reject' => '<a class="em-bookings-reject" href="'.em_add_get_params($url, array('action'=>'bookings_reject', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Reject','events-manager').'</a>',
+						'delete' => '<span class="trash"><a class="em-bookings-delete" href="'.em_add_get_params($url, array('action'=>'bookings_delete', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Delete','events-manager').'</a></span>',
+						'edit' => '<a class="em-bookings-edit" href="'.em_add_get_params($EM_Booking->get_event()->get_bookings_url(), array('booking_id'=>$EM_Booking->booking_id, 'em_ajax'=>null, 'em_obj'=>null)).'">'.__('Edit/View','events-manager').'</a>',
+					);
+					break;
+				case 2: //rejected
+					$booking_actions = array(
+						'approve' => '<a class="em-bookings-approve" href="'.em_add_get_params($url, array('action'=>'bookings_approve', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Approve','events-manager').'</a>',
+						'delete' => '<span class="trash"><a class="em-bookings-delete" href="'.em_add_get_params($url, array('action'=>'bookings_delete', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Delete','events-manager').'</a></span>',
+						'edit' => '<a class="em-bookings-edit" href="'.em_add_get_params($EM_Booking->get_event()->get_bookings_url(), array('booking_id'=>$EM_Booking->booking_id, 'em_ajax'=>null, 'em_obj'=>null)).'">'.__('Edit/View','events-manager').'</a>',
+					);
+					break;
+				case 3: //cancelled
+					$booking_actions = array(
+						'delete' => '<span class="trash"><a class="em-bookings-delete" href="'.em_add_get_params($url, array('action'=>'bookings_delete', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Delete','events-manager').'</a></span>',
+						'edit' => '<a class="em-bookings-edit" href="'.em_add_get_params($EM_Booking->get_event()->get_bookings_url(), array('booking_id'=>$EM_Booking->booking_id, 'em_ajax'=>null, 'em_obj'=>null)).'">'.__('Edit/View','events-manager').'</a>',
+					);
+					break;
+				case 4: //awaiting online payment - similar to pending but always needs approval in EM Free
+				case 5: //awaiting payment - similar to pending but always needs approval in EM Free
+					$booking_actions = array(
+						'approve' => '<a class="em-bookings-approve" href="'.em_add_get_params($url, array('action'=>'bookings_approve', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Approve','events-manager').'</a>',
+						'delete' => '<span class="trash"><a class="em-bookings-delete" href="'.em_add_get_params($url, array('action'=>'bookings_delete', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('Delete','events-manager').'</a></span>',
+						'edit' => '<a class="em-bookings-edit" href="'.em_add_get_params($EM_Booking->get_event()->get_bookings_url(), array('booking_id'=>$EM_Booking->booking_id, 'em_ajax'=>null, 'em_obj'=>null)).'">'.__('Edit/View','events-manager').'</a>',
+					);
+					break;
+					
+			}
+		}
+		else
+		{
+		switch($EM_Booking->booking_status){
+				case 6: //checked in
+					$booking_actions = array(
+						'userconfirmed' => '<a class="em-bookings-userconfirmed" href="'.em_add_get_params($url, array('action'=>'bookings_userconfirmed', 'booking_id'=>$EM_Booking->booking_id)).'">'.__('取消簽到','events-manager').'</a>'
+					);
+					break;
+				case 7: //user confirmed
+					$booking_actions = array(
+						'checkedin' => '<a class="em-bookings-checkedin" href="'.em_add_get_params($url, array('action'=>'bookings_checkedin', 'booking_id'=>$EM_Booking->booking_id)).'">'.__(' ♥班長簽到♥ ','events-manager').'</a>'
+
+					);
+					break;
+					
+			}
 		}
 		if( !get_option('dbem_bookings_approval') ) unset($booking_actions['unapprove']);
 		$booking_actions = apply_filters('em_bookings_table_booking_actions_'.$EM_Booking->booking_status ,$booking_actions, $EM_Booking);

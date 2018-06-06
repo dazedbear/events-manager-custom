@@ -76,11 +76,9 @@ function em_init_actions() {
 		}
 		//Save Event, only via BP or via [event_form]
 		if( $_REQUEST['action'] == 'event_save' && $EM_Event->can_manage('edit_events','edit_others_events') ){
+			throw new Exception('Division by zero.');
 			//Check Nonces
 			if( !wp_verify_nonce($_REQUEST['_wpnonce'], 'wpnonce_event_save') ) exit('Trying to perform an illegal action.');
-			//Set server timezone to UTC in case other plugins are doing something naughty
-			$server_timezone = date_default_timezone_get();
-			date_default_timezone_set('UTC');
 			//Grab and validate submitted data
 			if ( $EM_Event->get_post() && $EM_Event->save() ) { //EM_Event gets the event if submitted via POST and validates it (safer than to depend on JS)
 				$events_result = true;
@@ -102,8 +100,6 @@ function em_init_actions() {
 				$EM_Notices->add_error( $EM_Event->get_errors() );
 				$events_result = false;				
 			}
-			//Set server timezone back, even though it should be UTC anyway
-			date_default_timezone_set($server_timezone);
 		}
 		if ( $_REQUEST['action'] == 'event_duplicate' && wp_verify_nonce($_REQUEST['_wpnonce'],'event_duplicate_'.$EM_Event->event_id) ) {
 			$event = $EM_Event->duplicate();
@@ -264,10 +260,10 @@ function em_init_actions() {
 		}elseif( !empty($_REQUEST['event_id']) ){
 			$EM_Event = new EM_Event($_REQUEST['event_id']);
 		}
-		$allowed_actions = array('bookings_approve'=>'approve','bookings_reject'=>'reject','bookings_unapprove'=>'unapprove', 'bookings_delete'=>'delete');
+		$allowed_actions = array('bookings_approve'=>'approve','bookings_reject'=>'reject','bookings_unapprove'=>'unapprove', 'bookings_delete'=>'delete', 'bookings_checkedin'=>'checkedin', 'bookings_userconfirmed'=>'userconfirmed','bookings_author'=>'author');
 		$result = false;
 		$feedback = '';
-		if ( $_REQUEST['action'] == 'booking_add') {
+		if( $_REQUEST['action'] == 'booking_add') {
 			//ADD/EDIT Booking
 			ob_start();
 			if( (!defined('WP_CACHE') || !WP_CACHE) && !isset($GLOBALS["wp_fastest_cache"]) ) em_verify_nonce('booking_add');
@@ -365,6 +361,25 @@ function em_init_actions() {
 				$EM_Notices->add_error( __('You must log in to cancel your booking.', 'events-manager') );
 			}
 		//TODO user action shouldn't check permission, booking object should.
+	  	}elseif ( $_REQUEST['action'] == 'booking_userconfirmed') {
+	  		//Cancel Booking
+			em_verify_nonce('booking_cancel');
+	  		if( $EM_Booking->can_manage() || ($EM_Booking->person->ID == get_current_user_id()) ){
+				if( $EM_Booking->userconfirmed() ){
+					$result = true;
+					if( !defined('DOING_AJAX') ){
+						wp_redirect( $_SERVER['HTTP_REFERER'] );
+						exit();
+					}
+				}else{
+					$result = false;
+					$EM_Notices->add_error( $EM_Booking->get_errors() );
+					$feedback = $EM_Booking->feedback_message;
+				}
+			}else{
+				$EM_Notices->add_error( __('You must log in to cancel your booking.', 'events-manager') );
+			}
+		//TODO user action shouldn't check permission, booking object should.
 	  	}elseif( array_key_exists($_REQUEST['action'], $allowed_actions) && $EM_Event->can_manage('manage_bookings','manage_others_bookings') ){
 	  		//Event Admin only actions
 			$action = $allowed_actions[$_REQUEST['action']];
@@ -381,6 +396,7 @@ function em_init_actions() {
 				}
 				$result = !in_array(false,$results);
 			}elseif( is_object($EM_Booking) ){
+				// 點名
 				$result = $EM_Booking->$action();
 				$feedback = $EM_Booking->feedback_message;
 			}
@@ -483,21 +499,27 @@ function em_init_actions() {
 				$EM_Notices->add_confirm($EM_Booking->feedback_message, true);
 				$redirect = !empty($_REQUEST['redirect_to']) ? $_REQUEST['redirect_to'] : em_wp_get_referer();
 				wp_redirect( $redirect );
+							var_dump($EM_Booking->booking_note);
 				exit();
 			}else{
 				$EM_Notices->add_error($EM_Booking->errors);
 			}
-		}
-	
+		}elseif( $_REQUEST['action'] == 'bookings_add_paycode') { 
+			$EM_Booking->booking_paycode = $_REQUEST['booking_paycode'];
+
+			exit();
+		}	
 		if( $result && defined('DOING_AJAX') ){
 			$return = array('result'=>true, 'message'=>$feedback);
 			header( 'Content-Type: application/javascript; charset=UTF-8', true ); //add this for HTTP -> HTTPS requests which assume it's a cross-site request
 			echo EM_Object::json_encode(apply_filters('em_action_'.$_REQUEST['action'], $return, $EM_Booking));
+			var_dump(1);
 			die();
 		}elseif( !$result && defined('DOING_AJAX') ){
 			$return = array('result'=>false, 'message'=>$feedback, 'errors'=>$EM_Notices->get_errors());
 			header( 'Content-Type: application/javascript; charset=UTF-8', true ); //add this for HTTP -> HTTPS requests which assume it's a cross-site request
 			echo EM_Object::json_encode(apply_filters('em_action_'.$_REQUEST['action'], $return, $EM_Booking));
+			var_dump(2);
 			die();
 		}
 	}elseif( !empty($_REQUEST['action']) && $_REQUEST['action'] == 'booking_add' && !is_user_logged_in() && !get_option('dbem_bookings_anonymous')){
@@ -616,6 +638,18 @@ function em_init_actions() {
 				case 'em_bookings_confirmed_table':
 					//add some admin files just in case
 					include_once('admin/bookings/em-confirmed.php');
+					em_bookings_confirmed_table();
+					exit();
+					break;
+				case 'em_bookings_userconfirmed_table':
+					//add some admin files just in case
+					include_once('admin/bookings/em-userconfirmed.php');
+					em_bookings_userconfirmed_table();
+					exit();
+					break;
+				case 'em_bookings_checkedin_table':
+					//add some admin files just in case
+					include_once('admin/bookings/em-checkedin.php');
 					em_bookings_confirmed_table();
 					exit();
 					break;
