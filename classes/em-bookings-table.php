@@ -1,12 +1,26 @@
 <?php
-
-	function set_event_author($post_id,$author)
+$epost_id = 3;
+$eauthor_id = 0;
+$enew_author_id = 0;
+global $EM_Booking;
+function set_event_author()
 	{
-		wp_update_post([
-			"ID" => $post_id,
-			"post_author" => $author
-		], true);
+	global $epost_id;
+	global $eauthor_id;
+	$arg = array('ID'=> $epost_id, 'post_author'=> $eauthor_id);
+	wp_update_post($arg);
 	}
+function set_event_author_role()
+{
+	global $epost_id;
+	global $enew_author_id;
+	//global $EM_Booking;
+	$euser = get_user_by('id', $enew_author_id);
+	$euser->roles[0] = 'author';
+	$arg = array('ID'=> $epost_id, 'post_author'=> $enew_author_id);
+	wp_update_post($arg);
+	}
+
 
 //Builds a table of bookings, still work in progress...
 class EM_Bookings_Table{
@@ -631,17 +645,16 @@ class EM_Bookings_Table{
 				$val = $csv ? $EM_Booking->booking_comment : esc_html($EM_Booking->booking_comment);
 
 			}elseif( $col == 'role' ){
+				global $epost_id;
+				global $eauthor_id;
+				global $enew_author_id;
 				$roles = $EM_Booking->get_person()->roles;
 				$role = $roles[0];
-				$post_id = $this->get_event()->post_id;
-				$author_id = $EM_Booking->get_person()->ID;
+				$epost_id = $this->get_event()->epost_id;
 
-				wp_localize_script('events-manager', 'universityData', array(
-			        'root_url' => get_site_url(),
-			        'nonce' => wp_create_nonce('wp_rest')
-			    ));
 				if($role=='author'){
-					$val = '<button class="setAuthor" data-post-id="' . $post_id . '" data-author-id="'. $author_id . '">V</button>';					
+					$eauthor_id = $EM_Booking->get_person()->ID;
+					$val = '<a href="'.set_event_author().'">V</a>';
 				}
 
 			}elseif( $col == 'notes' ){
