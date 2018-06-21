@@ -241,3 +241,74 @@ Please edit your theme's CSS to override this
 	div.time-picker ul { list-style-type: none; margin: 0; padding: 0; }
 	div.time-picker li { cursor: pointer; height: 10px; font: 12px/1 Helvetica, Arial, sans-serif; padding: 4px 3px; }
 	div.time-picker li.selected { background: #0063CE; color: #fff; }
+
+/* 自定義的 rwd css grid */
+	*, *::before, *::after { box-sizing: border-box; }
+	.em-container { width: 100%; height: 100%; border-collapse: initial; border-radius: 10px; }
+	.em-container a { margin: 0 5px; }
+	.em-container td, .em-container th { border: 0.05em solid #aaa; display: flex; flex-direction: column; flex-flow: wrap; flex: auto; word-break: break-all; }
+	.em-container tr { display: flex; flex-direction: column; flex-flow: wrap; flex: auto; border-top: 2px solid #333; border-left: 2px solid #333; border-right: 2px solid #333; }
+	.em-container tbody tr:last-child { border-bottom: 2px solid #333; }
+	.primary { background: #F7C244; font-weight: bold; }
+	.primary a { color: #333; }
+	.primary a:hover { color: #fff; }
+	.sub-primary { background: #ffe5aa; }
+	.small-text { font-size: 0.8em; }
+	.row { position: relative; display: block; }
+	.row::after{ content: ""; clear: both; display: block; }
+	[class*="col-"] { width: 100%; float: left; padding: 5px; }
+	[class*="ver-"] { display: table-cell; }
+	.col-1 { width: 4.1666666667%; }
+	.col-2 { width: 8.3333333333%; }
+	.col-3 { width: 12.5%; }
+	.col-4 { width: 16.6666666667%; }
+	.col-5 { width: 20.8333333333%; }
+	.col-6 { width: 25%; }
+	.col-7 { width: 29.1666666667%; }
+	.col-8 { width: 33.3333333333%; }
+	.col-9 { width: 37.5%; }
+	.col-10 { width: 41.6666666667%; }
+	.col-11 { width: 45.8333333333%; }
+	.col-12 { width: 50%; }
+	.col-13 { width: 54.1666666667%; }
+	.col-14 { width: 58.3333333333%; }
+	.col-15 { width: 62.5%; }
+	.col-16 { width: 66.6666666667%; }
+	.col-17 { width: 70.8333333333%; }
+	.col-18 { width: 75%; }
+	.col-19 { width: 79.1666666667%; }
+	.col-20 { width: 83.3333333333%; }
+	.col-21 { width: 87.5%; }
+	.col-22 { width: 91.6666666667%; } 
+	.col-23 { width: 95.8333333333%; }
+	.col-24 { width: 100%; }
+	.ver-1 { height: 3.3333333333%; }
+	.ver-2 { height: 6.6666666667%; }
+	.ver-3 { height: 10%; }
+	.ver-4 { height: 13.3333333333%; }
+	.ver-5 { height: 16.6666666667%; }
+	.ver-6 { height: 20%; }
+	.ver-7 { height: 23.3333333333%; }
+	.ver-8 { height: 26.6666666667%;}
+	.ver-9 { height: 30%; }
+	.ver-10 { height: 33.3333333333%; }
+	.ver-11 { height: 36.6666666667%; }
+	.ver-12 { height: 40%; }
+	.ver-13 { height: 43.3333333333%; }
+	.ver-14 { height: 46.6666666667%; }
+	.ver-15 { height: 50%; }
+	.ver-16 { height: 53.3333333333%; }
+	.ver-17 { height: 56.6666666667%; }
+	.ver-18 { height: 60%; }
+	.ver-19 { height: 63.3333333333%; }
+	.ver-20 { height: 66.6666666667%; }
+	.ver-21 { height: 70%; }
+	.ver-22 { height: 73.3333333333%; }
+	.ver-23 { height: 76.6666666667%; }
+	.ver-24 { height: 80%; }
+	.ver-25 { height: 83.3333333333%; }
+	.ver-26 { height: 86.6666666667%; }
+	.ver-27 { height: 90%; }
+	.ver-28 { height: 93.3333333333%; }
+	.ver-29 { height: 96.6666666667%; }
+	.ver-30 { height: 100%; }

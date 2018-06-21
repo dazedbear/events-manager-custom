@@ -451,15 +451,38 @@ class EM_Bookings_Table{
 				</div>
 				<div class="clear"></div>
 				<div class='table-wrap'>
-				<table id='dbem-bookings-table' class='widefat post '>
+				<table id='dbem-bookings-table' class='widefat post em-container'>
 					<thead>
-						<tr>
+						<tr class="row">
 							<?php /*						
 							<th class='manage-column column-cb check-column' scope='col'>
 								<input class='select-all' type="checkbox" value='1' />
 							</th>
 							*/ ?>
-							<th class='manage-column' scope='col'><?php echo implode("</th><th class='manage-column' scope='col'>", $this->get_headers()); ?></th>
+							<?php
+								$rwd_grid_class = array_map(function ($col_key){
+									switch ($col_key) {
+										case 'user_name': return 'col-6 primary';
+										case 'event_name': return 'col-12 primary';
+										case 'event_date': return 'col-6 sub-primary small-text';
+										case 'dbem_phone': return 'col-6';
+										case 'user_email': return 'col-12';
+										case 'role': return 'col-3';
+										case 'booking_spaces': return 'col-3';
+										case 'booking_status': return 'col-12';
+										case 'event_time': return 'col-6 sub-primary small-text';
+										case 'actions': return 'col-24';
+										case 'booking_comment': return 'col-18 small-text';
+										case 'notes': return 'col-6 sub-primary small-text';
+										default: return 'col-3';
+									}
+								}, array_keys($this->get_headers()));								
+								foreach (array_values($this->get_headers()) as $col_key => $col_name) {
+							?>
+							<th class='manage-column <?php echo $rwd_grid_class[$col_key]; ?>' scope='col'><?php echo $col_name; ?></th>
+							<?php 
+								}
+							?>
 						</tr>
 					</thead>
 					<?php if( $this->bookings_count > 0 ): ?>
@@ -469,7 +492,7 @@ class EM_Bookings_Table{
 						$event_count = (!empty($event_count)) ? $event_count:0;
 						foreach ($this->bookings->bookings as $EM_Booking) {
 							?>
-							<tr>
+							<tr class="row">
 								<?php  /*
 								<th scope="row" class="check-column" style="padding:7px 0px 7px;"><input type='checkbox' value='<?php echo $EM_Booking->booking_id ?>' name='bookings[]'/></th>
 								*/ 
@@ -484,8 +507,9 @@ class EM_Bookings_Table{
 									}
 								}else{
 									$row = $this->get_row($EM_Booking);
-									foreach( $row as $row_cell ){
-									?><td><?php echo $row_cell; ?></td><?php
+									
+									foreach( $row as $idx => $row_cell ){
+									?><td class="<?php echo $rwd_grid_class[$idx]; ?>"><?php echo $row_cell; ?></td><?php
 									}
 								}
 								?>
@@ -496,7 +520,7 @@ class EM_Bookings_Table{
 					</tbody>
 					<?php else: ?>
 						<tbody>
-							<tr><td scope="row" colspan="<?php echo count($this->cols); ?>"><?php esc_html_e('No bookings.', 'events-manager'); ?></td></tr>
+							<tr><td scope="row" class="col-24" colspan="<?php echo count($this->cols); ?>"><?php esc_html_e('No bookings.', 'events-manager'); ?></td></tr>
 						</tbody>
 					<?php endif; ?>
 				</table>
