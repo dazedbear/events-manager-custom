@@ -3,23 +3,23 @@ $epost_id = 3;
 $eauthor_id = 0;
 $enew_author_id = 0;
 global $EM_Booking;
-function set_event_author()
-	{
-	global $epost_id;
-	global $eauthor_id;
-	$arg = array('ID'=> $epost_id, 'post_author'=> $eauthor_id);
-	wp_update_post($arg);
-	}
-function set_event_author_role()
-{
-	global $epost_id;
-	global $enew_author_id;
-	//global $EM_Booking;
-	$euser = get_user_by('id', $enew_author_id);
-	$euser->roles[0] = 'author';
-	$arg = array('ID'=> $epost_id, 'post_author'=> $enew_author_id);
-	wp_update_post($arg);
-	}
+// function set_event_author()
+// 	{
+// 	global $epost_id;
+// 	global $eauthor_id;
+// 	$arg = array('ID'=> $epost_id, 'post_author'=> $eauthor_id);
+// 	wp_update_post($arg);
+// 	}
+// function set_event_author_role()
+// {
+// 	global $epost_id;
+// 	global $enew_author_id;
+// 	//global $EM_Booking;
+// 	$euser = get_user_by('id', $enew_author_id);
+// 	$euser->roles[0] = 'author';
+// 	$arg = array('ID'=> $epost_id, 'post_author'=> $enew_author_id);
+// 	wp_update_post($arg);
+// 	}
 
 
 //Builds a table of bookings, still work in progress...
@@ -649,7 +649,8 @@ class EM_Bookings_Table{
 
 				if($role=='author'){
 					$eauthor_id = $EM_Booking->get_person()->ID;
-					$val = '<a href="'.set_event_author().'">V</a>';
+					//$val = '<a href="'.set_event_author().'">V</a>';
+					$val = '<a href="#">V</a>';
 				}
 
 			}elseif( $col == 'notes' ){
