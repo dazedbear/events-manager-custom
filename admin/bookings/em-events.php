@@ -88,11 +88,13 @@ function em_bookings_events_table() {
 			} else {
 			?>
 			<div class='table-wrap'>	
-			<table class="widefat">
+			<table class="widefat em-container">
 				<thead>
-					<tr>
-						<th><?php esc_html_e( 'Event', 'events-manager'); ?></th>
-						<th><?php esc_html_e( 'Date and time', 'events-manager'); ?></th>
+					<tr class="row">
+						<th class="col-24 primary"><?php esc_html_e( 'Event', 'events-manager'); ?></th>
+						<th class="col-24 sub-primary"><?php esc_html_e( 'Date and time', 'events-manager'); ?></th>
+						<th class="col-15"><?php esc_html_e("Booked Spaces",'events-manager'); ?></th>
+						<th class="col-9"><?php esc_html_e("Pending",'events-manager'); ?></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -101,7 +103,7 @@ function em_bookings_events_table() {
 					foreach ( $events as $event ) {
 						/* @var $event EM_Event */
 						$rowno++;
-						$class = ($rowno % 2) ? ' class="alternate"' : '';
+						$class = ($rowno % 2) ? ' class="alternate row"' : ' class="row"';
 						// FIXME set to american
 						$localised_start_date = date_i18n(get_option('date_format'), $event->start);
 						$localised_end_date = date_i18n(get_option('date_format'), $event->end);
@@ -113,18 +115,8 @@ function em_bookings_events_table() {
 						}							
 						?>
 						<tr <?php echo "$class $style"; ?>>
-							<td>
-								<strong>
-									<?php echo $event->output('#_BOOKINGSLINK'); ?>
-								</strong>
-								&ndash; 
-								<?php esc_html_e("Booked Spaces",'events-manager') ?>: <?php echo $event->get_bookings()->get_booked_spaces()."/".$event->get_spaces() ?>
-								<?php if( get_option('dbem_bookings_approval') == 1 ) : ?>
-									| <?php esc_html_e("Pending",'events-manager') ?>: <?php echo $event->get_bookings()->get_pending_spaces(); ?>
-								<?php endif; ?>
-							</td>
-					
-							<td>
+							<td class="col-24 primary"><?php echo $EM_Event->output('#_BOOKINGSLINK'); ?></td>
+							<td class="col-24 sub-primary">
 								<?php echo $localised_start_date; ?>
 								<?php echo ($localised_end_date != $localised_start_date) ? " - $localised_end_date":'' ?>
 								&ndash;
@@ -133,6 +125,8 @@ function em_bookings_events_table() {
 									echo substr ( $event->start_time, 0, 5 ) . " - " . substr ( $event->end_time, 0, 5 ); 
 								?>
 							</td>
+							<td class="col-15"><?php echo $EM_Event->get_bookings()->get_booked_spaces()."/".$EM_Event->get_spaces() ?></td>
+							<td class="col-9"><?php if( get_option('dbem_bookings_approval') == 1 ) echo $EM_Event->get_bookings()->get_pending_spaces(); ?></td>
 						</tr>
 						<?php
 					}
